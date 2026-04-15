@@ -1,0 +1,21 @@
+# Core Django
+Django>=5.0,<5.1
+djangorestframework>=3.14,<3.15
+
+# Database
+psycopg2-binary>=2.9,<3.0  # Postgres driver (optional for MVP, SQLite is default)
+
+# Environment variables
+python-decouple>=3.8,<4.0
+
+# OpenAI
+openai>=1.0,<2.0
+
+# MCP client (you'll need to add the actual package once known)
+# mcp-client-python  # placeholder
+
+# Utilities
+requests>=2.31,<3.0
+
+# Development
+django-extensions>=3.2,<4.0
