@@ -1,5 +1,17 @@
 # Architecture Diagram: Earnings Call Analysis LLM Flow
 
+## MAP/REDUCE Pattern Explained
+
+**Problem:** Earnings transcripts are too long (~50K tokens) to fit in a single LLM call.
+
+**Solution:** MAP/REDUCE pattern
+- **MAP:** Split transcript into chunks → process each chunk independently → get N results
+  - Example: 50 chunks × "summarize this chunk" = 50 mini-summaries
+- **REDUCE:** Combine all chunk results → merge into final output
+  - Example: Take 50 mini-summaries → "merge into one coherent summary" = 1 final summary
+
+**Analogy:** Like having 50 people each read one chapter of a book (MAP), then one person reads all their notes and writes the final report (REDUCE).
+
 ## Full System Flowchart
 
 ```mermaid
@@ -10,8 +22,8 @@ flowchart TD
     
     ParseMessage --> RegexSuccess{Regex<br/>successful?}
     
-    RegexSuccess -->|No| UseNano[Use nano LLM<br/>to classify message]
-    UseNano --> ParamsParsed
+    RegexSuccess -->|No| UseMini[Use gpt-4o-mini<br/>to classify message]
+    UseMini --> ParamsParsed
     
     RegexSuccess -->|Yes| ParamsParsed[Parameters extracted:<br/>symbol, quarter, intent]
     
@@ -71,7 +83,7 @@ flowchart TD
     style Start fill:#e1f5e1,color:#111,stroke:#2e7d32,stroke-width:2px
     style End fill:#e1f5e1,color:#111,stroke:#2e7d32,stroke-width:2px
     style CallMCP fill:#fff4e6,color:#111,stroke:#ef6c00,stroke-width:2px
-    style UseNano fill:#e3f2fd,color:#111,stroke:#1565c0,stroke-width:2px
+    style UseMini fill:#e3f2fd,color:#111,stroke:#1565c0,stroke-width:2px
     style MapSummarize fill:#e3f2fd,color:#111,stroke:#1565c0,stroke-width:2px
     style ReduceSummarize fill:#e3f2fd,color:#111,stroke:#1565c0,stroke-width:2px
     style MapExtract fill:#e3f2fd,color:#111,stroke:#1565c0,stroke-width:2px
@@ -89,16 +101,17 @@ flowchart TD
   - Chunk cache: tied to `transcript_id` → avoid re-chunking
   - Artifact cache: `(transcript_id, intent, model, prompt_version)` → avoid re-running expensive LLM calls
 
-- **Model usage (MVP - all mini):**
-  - Parser: regex first, nano only if needed
+- **Model usage (MVP - gpt-4o-mini only):**
+  - Parser: regex first, gpt-4o-mini fallback for ambiguous messages
   - Summarize: mini (map) + mini (reduce)
   - Extract: mini (map) + mini (reduce)
-  - Q&A: mini
-  - Chunk selection: heuristic scoring (free), optional nano rerank
+  - Q&A: mini with citations
+  - Chunk selection: keyword/section heuristic scoring (no LLM needed)
 
-- **Upgrade path:**
-  - If Q&A quality is weak: swap only Q&A final answer from mini → GPT-5.4
-  - Keep summarize/extract on mini
+- **Future optimization paths:**
+  - Add aggressive caching to minimize repeated LLM calls (biggest cost saver)
+  - If complex reasoning needed: upgrade specific flows to gpt-4o
+  - Keep all flows on mini until proven inadequate
 
 ## Data Flow Summary
 

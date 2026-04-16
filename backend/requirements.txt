@@ -11,8 +11,14 @@ python-decouple>=3.8,<4.0
 # OpenAI
 openai>=1.0,<2.0
 
-# MCP client (you'll need to add the actual package once known)
-# mcp-client-python  # placeholder
+# MCP
+mcp>=1.12.3
+
+# HTTP client
+httpx>=0.27
+
+# CORS
+django-cors-headers>=4.3
 
 # Utilities
 requests>=2.31,<3.0

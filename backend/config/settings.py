@@ -41,6 +41,7 @@ INSTALLED_APPS = [
     
     # Third-party apps
     'rest_framework',
+    'corsheaders',
     
     # Local apps
     'transcripts',
@@ -52,6 +53,7 @@ INSTALLED_APPS = [
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
+    'corsheaders.middleware.CorsMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
@@ -152,12 +154,18 @@ REST_FRAMEWORK = {
 
 # OpenAI API
 OPENAI_API_KEY = config('OPENAI_API_KEY', default='')
-OPENAI_MODEL_MINI = config('OPENAI_MODEL_MINI', default='gpt-4o-mini')
-OPENAI_MODEL_NANO = config('OPENAI_MODEL_NANO', default='gpt-4o-mini')
-OPENAI_MODEL_LARGE = config('OPENAI_MODEL_LARGE', default='gpt-4o')
+OPENAI_MODEL = config('OPENAI_MODEL', default='gpt-4o-mini')
 
 # Alpha Vantage API
 ALPHAVANTAGE_API_KEY = config('ALPHAVANTAGE_API_KEY', default='')
 ALPHAVANTAGE_MCP_TRANSPORT = config('ALPHAVANTAGE_MCP_TRANSPORT', default='http')
 ALPHAVANTAGE_MCP_URL = config('ALPHAVANTAGE_MCP_URL', default='https://mcp.alphavantage.co/mcp')
+
+# =============================================================================
+# CORS Configuration
+# =============================================================================
+
+CORS_ALLOWED_ORIGINS = [
+    "http://localhost:5173",  # Vite dev server
+]
 
