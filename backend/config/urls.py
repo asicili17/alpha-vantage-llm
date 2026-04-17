@@ -1,8 +1,6 @@
 """
 URL configuration for config project.
 
-The `urlpatterns` list routes URLs to views. For more information please see:
-    https://docs.djangoproject.com/en/6.0/topics/http/urls/
 Examples:
 Function views
     1. Add an import:  from my_app import views
@@ -17,6 +15,9 @@ Including another URLconf
 from django.contrib import admin
 from django.urls import path
 
+from api import views as api_views
+
 urlpatterns = [
     path('admin/', admin.site.urls),
+    path('api/transcripts/fetch', api_views.fetch_transcript, name='fetch_transcript'),
 ]
