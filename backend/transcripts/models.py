@@ -49,3 +49,27 @@ class TranscriptTurn(models.Model):
         
     def __str__(self):
         return f"{self.transcript.symbol} {self.transcript.quarter} - Turn {self.turn_index}: {self.speaker}"
+
+
+class TranscriptChunk(models.Model):
+    """
+    Represents a chunk of transcript text for LLM processing.
+    """
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    transcript = models.ForeignKey(Transcript, on_delete=models.CASCADE, related_name="chunks")
+    chunk_index = models.PositiveIntegerField()
+    section = models.CharField(max_length=20)  # prepared | qa | unknown
+    speaker = models.CharField(max_length=255, null=True, blank=True)
+    text = models.TextField()
+    start_char = models.IntegerField(null=True, blank=True)
+    end_char = models.IntegerField(null=True, blank=True)
+    token_count = models.IntegerField(null=True, blank=True)
+    avg_turn_sentiment = models.FloatField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    
+    class Meta:
+        unique_together = [("transcript", "chunk_index")]
+        ordering = ["chunk_index"]
+    
+    def __str__(self):
+        return f"{self.transcript.symbol} {self.transcript.quarter} Chunk {self.chunk_index}"

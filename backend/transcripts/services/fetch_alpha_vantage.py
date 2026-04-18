@@ -16,6 +16,7 @@ from django.db import IntegrityError, transaction
 from django.utils import timezone
 
 from transcripts.models import Transcript, TranscriptTurn
+from transcripts.services.chunking import get_or_create_chunks
 
 
 class TranscriptNotAvailable(Exception):
@@ -229,6 +230,8 @@ def get_or_fetch_transcript(symbol: str, quarter: str) -> Transcript:
             symbol=symbol,
             quarter=quarter
         )
+        # Ensure chunks exist for cached transcript
+        get_or_create_chunks(transcript)
         return transcript
     except Transcript.DoesNotExist:
         pass
@@ -295,5 +298,8 @@ def get_or_fetch_transcript(symbol: str, quarter: str) -> Transcript:
             symbol=symbol,
             quarter=quarter
         )
+    
+    # Create chunks immediately
+    get_or_create_chunks(transcript)
     
     return transcript
