@@ -18,6 +18,53 @@ Output rules:
   - confidence: one of [high, medium, low]
 """
 
+# =============================================================================
+# Map/Reduce Summarization Prompts
+# =============================================================================
+
+MAP_SYSTEM_PROMPT = """You are an earnings call analysis assistant. Summarize only what is explicitly stated in the transcript chunk."""
+
+MAP_USER_PROMPT = """Task: Summarize this earnings call chunk in 3-5 concise bullet points.
+
+Focus on:
+- Financial results (revenue, profit, margins, growth rates)
+- Forward guidance (forecasts, targets, expectations)
+- Risks and challenges mentioned
+- Strategic priorities and initiatives
+
+Rules:
+- Be specific and factual
+- Include numbers when mentioned
+- Do not infer or extrapolate
+- Return valid JSON matching this schema: {{"bullets": [string], "mentions_guidance": boolean}}
+
+Chunk:
+{chunk_text}
+
+Return only valid JSON, no markdown wrapping."""
+
+REDUCE_SYSTEM_PROMPT = """You are an earnings call analysis assistant."""
+
+REDUCE_USER_PROMPT = """Task: Merge these summaries from different parts of an earnings call into one cohesive summary.
+
+Input summaries:
+{summaries}
+
+Instructions:
+- Combine into max 10 bullet points
+- Deduplicate similar facts, keeping the most specific version
+- Organize by topic (financial results, guidance, risks, strategy)
+- Preserve key numbers and quotes
+- Return valid JSON matching this schema: {{"bullets": [string], "sections_covered": [string]}}
+
+The sections_covered should be a list of topic areas represented (e.g., ["financial_results", "guidance", "risks", "strategy"]).
+
+Return only valid JSON, no markdown wrapping."""
+
+# =============================================================================
+# Legacy Prompts (keeping for compatibility)
+# =============================================================================
+
 SUMMARIZATION_PROMPT = """Task: Summarize this chunk in 3–6 bullets.
 Include: financial performance, guidance, risks, strategic priorities.
 Keep it factual; do not infer.

@@ -20,4 +20,5 @@ from api import views as api_views
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('api/transcripts/fetch', api_views.fetch_transcript, name='fetch_transcript'),
+    path('api/transcripts/<uuid:pk>/summarize/', api_views.SummarizeView.as_view(), name='summarize-transcript'),
 ]

@@ -8,7 +8,10 @@ import httpx
 from rest_framework import status
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
+from rest_framework.views import APIView
 
+from agent.models import Artifact
+from agent.services.summarize import get_or_create_summary, MODEL
 from transcripts.models import Transcript
 from transcripts.services.fetch_alpha_vantage import (
     get_or_fetch_transcript,
@@ -121,5 +124,67 @@ def fetch_transcript(request):
         return Response(
             {"error": "Internal server error", "message": str(e)},
             status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
+
+
+class SummarizeView(APIView):
+    """
+    Generate or retrieve cached summary for a transcript.
+    
+    POST /api/transcripts/<uuid:pk>/summarize
+    
+    Returns:
+        200: {artifact_id, summary, cached}
+        404: Transcript not found
+        500: Summarization error
+    """
+    
+    def post(self, request, pk):
+        """
+        Summarize a transcript using map/reduce pipeline.
+        
+        Args:
+            pk: Transcript UUID
+            
+        Returns:
+            JSON response with summary artifact
+        """
+        # Get transcript
+        try:
+            transcript = Transcript.objects.get(pk=pk)
+        except Transcript.DoesNotExist:
+            return Response(
+                {"error": "Transcript not found", "message": f"No transcript with id {pk}"},
+                status=status.HTTP_404_NOT_FOUND
+            )
+        
+        # Check if artifact already exists (cached)
+        cached = False
+        try:
+            artifact = Artifact.objects.get(
+                transcript=transcript,
+                artifact_type="summary",
+                model=MODEL,
+                prompt_version="v1"
+            )
+            cached = True
+        except Artifact.DoesNotExist:
+            # Need to create it
+            try:
+                artifact = get_or_create_summary(transcript)
+            except Exception as e:
+                return Response(
+                    {"error": "Summarization failed", "message": str(e)},
+                    status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                )
+        
+        # Return response
+        return Response(
+            {
+                "artifact_id": str(artifact.id),
+                "summary": artifact.content,
+                "cached": cached
+            },
+            status=status.HTTP_200_OK
         )
 
