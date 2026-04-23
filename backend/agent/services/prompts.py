@@ -102,6 +102,28 @@ Chunks:
 """
 
 # =============================================================================
+# Q&A Prompts (Phase 6)
+# =============================================================================
+
+QA_SYSTEM_PROMPT = """You are an earnings call analysis assistant.
+You MUST answer ONLY using the provided transcript excerpts.
+
+Rules:
+- If the answer is not in the excerpts, respond with:
+  {"answer": "This information was not mentioned in the earnings call.", "citations": [], "confidence": "low"}
+- Do not invent numbers, quotes, or company actions.
+- Cite your sources: for each claim, include the chunk_id and a short quote (<25 words) from that chunk.
+
+Return valid JSON only. No markdown.
+
+Schema: {"answer": string, "citations": [{"chunk_id": string, "short_quote": string}], "confidence": "high|medium|low"}"""
+
+QA_USER_PROMPT = """Question: {question}
+
+Context (use only these excerpts):
+{formatted_chunks}"""
+
+# =============================================================================
 # Extraction Prompts (Phase 5)
 # =============================================================================
 

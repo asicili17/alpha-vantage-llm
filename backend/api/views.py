@@ -12,6 +12,7 @@ from rest_framework.views import APIView
 
 from agent.models import Artifact
 from agent.services.extract import get_or_create_extraction, MODEL as EXTRACT_MODEL
+from agent.services.qa import answer_question
 from agent.services.summarize import get_or_create_summary, MODEL
 from transcripts.models import Transcript
 from transcripts.services.fetch_alpha_vantage import (
@@ -247,6 +248,69 @@ class ExtractView(APIView):
                 "artifact_id": str(artifact.id),
                 "extraction": artifact.content,
                 "cached": cached
+            },
+            status=status.HTTP_200_OK
+        )
+
+
+class QAView(APIView):
+    """
+    Answer a question about a transcript using grounded Q&A.
+    
+    POST /api/transcripts/<uuid:pk>/qa
+    Body: {question: string}
+    
+    Returns:
+        200: {answer, citations, confidence, chunks_used}
+        404: Transcript not found
+        400: Invalid request (missing question)
+        500: Q&A error
+    """
+    
+    def post(self, request, pk):
+        """
+        Answer a question about the transcript using retrieval + LLM.
+        
+        Args:
+            pk: Transcript UUID
+            request.data.question: Question string
+            
+        Returns:
+            JSON response with answer, citations, confidence, and chunks_used
+        """
+        # Validate request body
+        question = request.data.get('question')
+        if not question:
+            return Response(
+                {"error": "Invalid request", "message": "Field 'question' is required"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Get transcript
+        try:
+            transcript = Transcript.objects.get(pk=pk)
+        except Transcript.DoesNotExist:
+            return Response(
+                {"error": "Transcript not found", "message": f"No transcript with id {pk}"},
+                status=status.HTTP_404_NOT_FOUND
+            )
+        
+        # Answer question (not cached - each question is unique)
+        try:
+            result = answer_question(transcript, question)
+        except Exception as e:
+            return Response(
+                {"error": "Q&A failed", "message": str(e)},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+        
+        # Return response
+        return Response(
+            {
+                "answer": result["answer"],
+                "citations": result["citations"],
+                "confidence": result["confidence"],
+                "chunks_used": result["chunks_used"]
             },
             status=status.HTTP_200_OK
         )

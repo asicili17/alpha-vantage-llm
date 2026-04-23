@@ -22,4 +22,5 @@ urlpatterns = [
     path('api/transcripts/fetch', api_views.fetch_transcript, name='fetch_transcript'),
     path('api/transcripts/<uuid:pk>/summarize/', api_views.SummarizeView.as_view(), name='summarize-transcript'),
     path('api/transcripts/<uuid:pk>/extract/', api_views.ExtractView.as_view(), name='extract-transcript'),
+    path('api/transcripts/<uuid:pk>/qa/', api_views.QAView.as_view(), name='qa-transcript'),
 ]
