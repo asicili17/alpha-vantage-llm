@@ -16,9 +16,11 @@ from django.contrib import admin
 from django.urls import path
 
 from api import views as api_views
+from chat import views as chat_views
 
 urlpatterns = [
     path('admin/', admin.site.urls),
+    path('api/chat/', chat_views.ChatView.as_view(), name='chat'),
     path('api/transcripts/fetch', api_views.fetch_transcript, name='fetch_transcript'),
     path('api/transcripts/<uuid:pk>/summarize/', api_views.SummarizeView.as_view(), name='summarize-transcript'),
     path('api/transcripts/<uuid:pk>/extract/', api_views.ExtractView.as_view(), name='extract-transcript'),
