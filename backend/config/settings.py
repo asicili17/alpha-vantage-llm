@@ -168,6 +168,6 @@ ALPHAVANTAGE_MCP_URL = config('ALPHAVANTAGE_MCP_URL', default='https://mcp.alpha
 # =============================================================================
 
 CORS_ALLOWED_ORIGINS = [
-    "http://localhost:5173",  # Vite dev server
+    "http://localhost:5173", 
 ]
 
