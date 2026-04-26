@@ -36,7 +36,8 @@ def _format_chunks(chunks) -> str:
     Format chunks for LLM context with citation markers.
     
     Format:
-        [chunk_id={chunk.id}] (section={chunk.section})
+        === CHUNK ID: {chunk.id} ===
+        Section: {chunk.section}
         {chunk.text}
         
     Args:
@@ -47,8 +48,9 @@ def _format_chunks(chunks) -> str:
     """
     formatted_parts = []
     for chunk in chunks:
-        chunk_header = f"[chunk_id={chunk.id}] (section={chunk.section})"
-        formatted_parts.append(f"{chunk_header}\n{chunk.text}")
+        chunk_header = f"=== CHUNK ID: {chunk.id} ==="
+        section_line = f"Section: {chunk.section}"
+        formatted_parts.append(f"{chunk_header}\n{section_line}\n{chunk.text}")
     
     return "\n\n---\n\n".join(formatted_parts)
 
@@ -197,7 +199,7 @@ def answer_question(transcript: Transcript, question: str) -> dict:
     valid_chunk_ids = {str(chunk.id) for chunk in chunks}
     
     # Step 5: Call OpenAI
-    client = OpenAI()
+    client = OpenAI(api_key=settings.OPENAI_API_KEY)
     user_prompt = QA_USER_PROMPT.format(
         question=question,
         formatted_chunks=formatted_chunks
@@ -210,7 +212,7 @@ def answer_question(transcript: Transcript, question: str) -> dict:
             {"role": "user", "content": user_prompt}
         ],
         temperature=0.3,
-        max_tokens=1000
+        max_tokens=2000
     )
     
     # Step 6: Parse response

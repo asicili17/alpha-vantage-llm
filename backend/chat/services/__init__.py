@@ -12,6 +12,7 @@ from django.db import transaction
 from django.db.models import Max
 
 from agent.services.extract import get_or_create_extraction
+from agent.services.formatting import format_artifact_content
 from agent.services.qa import answer_question
 from agent.services.summarize import get_or_create_summary
 from chat.models import Conversation, Message
@@ -165,11 +166,13 @@ def process_message(conversation_id: Optional[str], user_message: str) -> Dict:
             elif intent == 'summarize':
                 summary_artifact = get_or_create_summary(transcript)
                 cached_status = " (from cache)" if summary_artifact else ""
-                assistant_message = f"Here's the summary for {transcript.symbol} {transcript.quarter}{cached_status}:\n\n{summary_artifact.content}"
+                formatted_content = format_artifact_content('summary', summary_artifact.content)
+                assistant_message = f"Here's the summary for {transcript.symbol} {transcript.quarter}{cached_status}:\n\n{formatted_content}"
             elif intent == 'extract':
                 extraction_artifact = get_or_create_extraction(transcript)
                 cached_status = " (from cache)" if extraction_artifact else ""
-                assistant_message = f"Here are the extracted key metrics and information for {transcript.symbol} {transcript.quarter}{cached_status}:\n\n{extraction_artifact.content}"
+                formatted_content = format_artifact_content('extraction', extraction_artifact.content)
+                assistant_message = f"Here are the extracted key metrics and information for {transcript.symbol} {transcript.quarter}{cached_status}:\n\n{formatted_content}"
         else:
             # Need to fetch transcript
             symbol, quarter = extract_symbol_quarter(user_message)
@@ -196,10 +199,12 @@ def process_message(conversation_id: Optional[str], user_message: str) -> Dict:
                         assistant_message = f"Successfully fetched transcript for {symbol} {quarter}. You can now ask me to summarize it, extract key information, or ask specific questions."
                     elif intent == 'summarize':
                         summary_artifact = get_or_create_summary(transcript)
-                        assistant_message = f"Here's the summary for {symbol} {quarter}:\n\n{summary_artifact.content}"
+                        formatted_content = format_artifact_content('summary', summary_artifact.content)
+                        assistant_message = f"Here's the summary for {symbol} {quarter}:\n\n{formatted_content}"
                     elif intent == 'extract':
                         extraction_artifact = get_or_create_extraction(transcript)
-                        assistant_message = f"Here are the extracted key metrics and information for {symbol} {quarter}:\n\n{extraction_artifact.content}"
+                        formatted_content = format_artifact_content('extraction', extraction_artifact.content)
+                        assistant_message = f"Here are the extracted key metrics and information for {symbol} {quarter}:\n\n{formatted_content}"
                         
                 except TranscriptNotAvailable as e:
                     raise

@@ -13,8 +13,9 @@ import InputBar from './InputBar';
  * @param {boolean} props.loading - Whether the assistant is responding
  * @param {string|null} props.error - Error message to display (if any)
  * @param {Function} props.onSendMessage - Callback when user sends a message
+ * @param {number} props.inputKey - Key to force remount InputBar on new chat
  */
-function ChatWindow({ messages, loading, error, onSendMessage }) {
+function ChatWindow({ messages, loading, error, onSendMessage, inputKey }) {
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
       {error && (
@@ -25,7 +26,7 @@ function ChatWindow({ messages, loading, error, onSendMessage }) {
       <Box sx={{ flex: 1, overflow: 'hidden' }}>
         <MessageList messages={messages} loading={loading} />
       </Box>
-      <InputBar onSend={onSendMessage} disabled={loading} />
+      <InputBar key={inputKey} onSend={onSendMessage} disabled={loading} />
     </Box>
   );
 }

@@ -8,6 +8,7 @@ This service handles:
 """
 
 import json
+import logging
 import re
 
 import httpx
@@ -17,6 +18,8 @@ from django.utils import timezone
 
 from transcripts.models import Transcript, TranscriptTurn
 from transcripts.services.chunking import get_or_create_chunks
+
+logger = logging.getLogger(__name__)
 
 
 class TranscriptNotAvailable(Exception):
@@ -63,11 +66,19 @@ class AlphaVantageMcpClient:
             "params": params
         }
         
-        response = httpx.post(self._mcp_url(), json=body, timeout=30)
-        response.raise_for_status()
+        try:
+            response = httpx.post(self._mcp_url(), json=body, timeout=30)
+            response.raise_for_status()
+        except httpx.HTTPStatusError as e:
+            logger.error(f"MCP HTTP error {e.response.status_code}: {e.response.text[:500]}")
+            raise
+        except httpx.HTTPError as e:
+            logger.error(f"MCP request failed: {type(e).__name__}: {str(e)}")
+            raise
         
         data = response.json()
         if "error" in data:
+            logger.error(f"MCP returned error: {data['error']}")
             raise RuntimeError(f"MCP error: {data['error']}")
         
         return data.get("result", {})
@@ -140,9 +151,36 @@ class AlphaVantageMcpClient:
         
         # Parse JSON from text content
         try:
-            payload = json.loads(text_content)
+            response_data = json.loads(text_content)
         except json.JSONDecodeError:
             raise RuntimeError(f"Failed to parse JSON from MCP response: {text_content[:200]}")
+        
+        # Handle preview response - fetch full data from data_url
+        if response_data.get("preview"):
+            # MCP returned a preview, fetch the full data from data_url
+            data_url = response_data.get("data_url")
+            if not data_url:
+                raise TranscriptNotAvailable(
+                    f"Preview response has no data_url for {symbol} {quarter}"
+                )
+            
+            # Fetch the full transcript data from the CDN URL
+            try:
+                full_response = httpx.get(data_url, timeout=30)
+                full_response.raise_for_status()
+                full_text = full_response.text
+            except httpx.HTTPError as e:
+                logger.error(f"Failed to fetch full data from {data_url}: {type(e).__name__}: {str(e)}")
+                raise RuntimeError(f"Failed to fetch full transcript data: {str(e)}")
+            
+            # Parse the full data as JSON
+            try:
+                payload = json.loads(full_text)
+            except json.JSONDecodeError:
+                raise RuntimeError(f"Failed to parse full data JSON from {data_url}: {full_text[:200]}")
+        else:
+            # Direct response (full data returned in response)
+            payload = response_data
         
         # Check for Alpha Vantage error conditions
         if "Note" in payload:

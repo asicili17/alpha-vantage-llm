@@ -1,5 +1,13 @@
 import { useState } from 'react';
-import { Box, Container, AppBar, Toolbar, Typography } from '@mui/material';
+import {
+  Box,
+  AppBar,
+  Toolbar,
+  Typography,
+  IconButton,
+  Tooltip
+} from '@mui/material';
+import AddIcon from '@mui/icons-material/Add';
 import ChatWindow from './components/chat/ChatWindow';
 import { sendChatMessage } from './api/chat';
 
@@ -8,6 +16,14 @@ function App() {
   const [messages, setMessages] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [chatResetCounter, setChatResetCounter] = useState(0);
+
+  const handleNewChat = () => {
+    setConversationId(null);
+    setMessages([]);
+    setError(null);
+    setChatResetCounter(prev => prev + 1);
+  };
 
   const handleSendMessage = async (userMessage) => {
     // Clear any previous errors
@@ -60,7 +76,7 @@ function App() {
     <Box sx={{ display: 'flex', flexDirection: 'column', height: '100vh' }}>
       <AppBar position="static" elevation={1}>
         <Toolbar>
-          <Box>
+          <Box sx={{ flex: 1 }}>
             <Typography variant="h6" component="h1">
               Earnings Call Analysis Agent
             </Typography>
@@ -68,6 +84,15 @@ function App() {
               Ask questions about company earnings calls
             </Typography>
           </Box>
+          <Tooltip title="New chat">
+            <IconButton
+              color="inherit"
+              onClick={handleNewChat}
+              disabled={loading}
+            >
+              <AddIcon />
+            </IconButton>
+          </Tooltip>
         </Toolbar>
       </AppBar>
       <Box sx={{ flex: 1, overflow: 'hidden' }}>
@@ -76,6 +101,7 @@ function App() {
           loading={loading}
           error={error}
           onSendMessage={handleSendMessage}
+          inputKey={chatResetCounter}
         />
       </Box>
     </Box>
