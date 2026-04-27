@@ -8,9 +8,10 @@ Implements a two-pass approach:
 Results are cached in the Artifact model.
 """
 
+import concurrent.futures
 import json
 import re
-from typing import Dict, List
+from typing import Dict, List, Tuple
 
 from django.conf import settings
 from openai import OpenAI
@@ -233,11 +234,14 @@ def get_or_create_summary(transcript: Transcript) -> Artifact:
                 f"This indicates a Phase 3 chunking failure."
             )
     
-    # Map phase: Summarize each chunk
-    map_outputs = []
-    for chunk in chunks:
-        chunk_summary = _map_chunk(chunk.text, client)
-        map_outputs.append(chunk_summary)
+    # Map phase: Summarize each chunk (parallelized)
+    with concurrent.futures.ThreadPoolExecutor(max_workers=10) as executor:
+        # Create a helper function that includes the client
+        def summarize_chunk(chunk):
+            return _map_chunk(chunk.text, client)
+        
+        # Map all chunks in parallel
+        map_outputs = list(executor.map(summarize_chunk, chunks))
     
     # Reduce phase: Merge summaries with hierarchical reduction if needed
     # Estimate tokens in reduce input
@@ -269,4 +273,4 @@ def get_or_create_summary(transcript: Transcript) -> Artifact:
         content=final_summary
     )
     
-    return artifact
+    return artifact, False

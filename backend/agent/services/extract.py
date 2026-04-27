@@ -8,9 +8,10 @@ Implements a map/reduce approach:
 Results are cached in the Artifact model.
 """
 
+import concurrent.futures
 import json
 import logging
-from typing import Dict, List
+from typing import Dict, List, Tuple
 
 from django.conf import settings
 from openai import OpenAI
@@ -231,7 +232,7 @@ def _validate_citations_in_list(items, field_name, valid_chunk_ids, citation_key
     return filtered
 
 
-def get_or_create_extraction(transcript: Transcript) -> Artifact:
+def get_or_create_extraction(transcript: Transcript) -> Tuple[Artifact, bool]:
     """
     Get cached extraction or create a new one using map/reduce.
     
@@ -239,7 +240,7 @@ def get_or_create_extraction(transcript: Transcript) -> Artifact:
     1. Check if artifact exists in cache
     2. If not, get chunks from transcript
     3. Validate chunk token counts (relies on Phase 3 chunking limits)
-    4. Map: Extract from each chunk
+    4. Map: Extract from each chunk (parallelized)
     5. Reduce: Merge extractions with deduplication
     6. Persist artifact
     
@@ -247,7 +248,7 @@ def get_or_create_extraction(transcript: Transcript) -> Artifact:
         transcript: Transcript instance to extract from
         
     Returns:
-        Artifact instance with extraction in content field
+        Tuple of (Artifact instance, was_cached: bool)
         
     Raises:
         Exception: For OpenAI API errors or invalid responses
@@ -260,7 +261,7 @@ def get_or_create_extraction(transcript: Transcript) -> Artifact:
             model=MODEL,
             prompt_version=PROMPT_VERSION
         )
-        return artifact
+        return artifact, True
     except Artifact.DoesNotExist:
         pass
     
@@ -282,11 +283,14 @@ def get_or_create_extraction(transcript: Transcript) -> Artifact:
                 f"{chunk_tokens} > {MAX_TOKENS_PER_CALL}. "
             )
     
-    # Map phase: Extract from each chunk
-    map_outputs = []
-    for chunk in chunks:
-        chunk_extraction = _map_chunk(chunk, client)
-        map_outputs.append(chunk_extraction)
+    # Map phase: Extract from each chunk (parallelized)
+    with concurrent.futures.ThreadPoolExecutor(max_workers=10) as executor:
+        # Create a helper function that includes the client
+        def extract_chunk(chunk):
+            return _map_chunk(chunk, client)
+        
+        # Map all chunks in parallel
+        map_outputs = list(executor.map(extract_chunk, chunks))
     
     # Reduce phase: Merge extractions with hierarchical reduction if needed
     # Estimate tokens in reduce input
@@ -348,4 +352,4 @@ def get_or_create_extraction(transcript: Transcript) -> Artifact:
         content=validated_extraction
     )
     
-    return artifact
+    return artifact, False

@@ -1,7 +1,8 @@
-import { Box, CircularProgress } from '@mui/material';
+import { Box } from '@mui/material';
+import './LoadingIndicator.css';
 
 /**
- * Renders an animated loading indicator as an assistant message
+ * Renders an animated honeycomb loading indicator as an assistant message
  */
 function LoadingIndicator() {
   return (
@@ -9,14 +10,23 @@ function LoadingIndicator() {
       <Box
         sx={{
           p: 2,
-          bgcolor: 'grey.100',
+          bgcolor: '#0a0a0a',
+          border: '1px solid #003300',
           borderRadius: 1,
           display: 'flex',
           alignItems: 'center',
           gap: 1,
         }}
       >
-        <CircularProgress size={20} />
+        <div className="honeycomb">
+          <div></div>
+          <div></div>
+          <div></div>
+          <div></div>
+          <div></div>
+          <div></div>
+          <div></div>
+        </div>
       </Box>
     </Box>
   );

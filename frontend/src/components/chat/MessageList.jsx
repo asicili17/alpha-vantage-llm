@@ -43,10 +43,10 @@ function MessageList({ messages, loading }) {
           }}
         >
           <Typography variant="body1" color="text.secondary">
-            Start a conversation about earnings calls...
+            Start a conversation about an earnings call...
           </Typography>
           <Typography variant="body2" color="text.disabled">
-            Try asking: "What were the key highlights from Apple's latest earnings?"
+            Try asking: "Summarize the highlights in the 2025 Q4 earnings call from AAPL"
           </Typography>
         </Box>
       ) : (

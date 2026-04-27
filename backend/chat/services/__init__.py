@@ -164,13 +164,13 @@ def process_message(conversation_id: Optional[str], user_message: str) -> Dict:
                     f"You can ask me to summarize it, extract key information, or ask specific questions."
                 )
             elif intent == 'summarize':
-                summary_artifact = get_or_create_summary(transcript)
-                cached_status = " (from cache)" if summary_artifact else ""
+                summary_artifact, was_cached = get_or_create_summary(transcript)
+                cached_status = " (from cache)" if was_cached else ""
                 formatted_content = format_artifact_content('summary', summary_artifact.content)
                 assistant_message = f"Here's the summary for {transcript.symbol} {transcript.quarter}{cached_status}:\n\n{formatted_content}"
             elif intent == 'extract':
-                extraction_artifact = get_or_create_extraction(transcript)
-                cached_status = " (from cache)" if extraction_artifact else ""
+                extraction_artifact, was_cached = get_or_create_extraction(transcript)
+                cached_status = " (from cache)" if was_cached else ""
                 formatted_content = format_artifact_content('extraction', extraction_artifact.content)
                 assistant_message = f"Here are the extracted key metrics and information for {transcript.symbol} {transcript.quarter}{cached_status}:\n\n{formatted_content}"
         else:
@@ -198,11 +198,11 @@ def process_message(conversation_id: Optional[str], user_message: str) -> Dict:
                     if intent == 'fetch':
                         assistant_message = f"Successfully fetched transcript for {symbol} {quarter}. You can now ask me to summarize it, extract key information, or ask specific questions."
                     elif intent == 'summarize':
-                        summary_artifact = get_or_create_summary(transcript)
+                        summary_artifact, was_cached = get_or_create_summary(transcript)
                         formatted_content = format_artifact_content('summary', summary_artifact.content)
                         assistant_message = f"Here's the summary for {symbol} {quarter}:\n\n{formatted_content}"
                     elif intent == 'extract':
-                        extraction_artifact = get_or_create_extraction(transcript)
+                        extraction_artifact, was_cached = get_or_create_extraction(transcript)
                         formatted_content = format_artifact_content('extraction', extraction_artifact.content)
                         assistant_message = f"Here are the extracted key metrics and information for {symbol} {quarter}:\n\n{formatted_content}"
                         

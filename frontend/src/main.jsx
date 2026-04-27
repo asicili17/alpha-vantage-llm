@@ -5,9 +5,37 @@ import App from './App.jsx'
 
 const theme = createTheme({
   palette: {
-    mode: 'light',
+    mode: 'dark',
     primary: {
-      main: '#1976d2',
+      main: '#00ff00', 
+    },
+    secondary: {
+      main: '#00cc00',
+    },
+    background: {
+      default: '#000000', 
+      paper: '#0a0a0a', 
+    },
+    text: {
+      primary: '#00ff00',
+      secondary: '#00cc00',
+    },
+  },
+  components: {
+    MuiAppBar: {
+      styleOverrides: {
+        root: {
+          backgroundColor: '#0a0a0a',
+          borderBottom: '1px solid #00ff00',
+        },
+      },
+    },
+    MuiPaper: {
+      styleOverrides: {
+        root: {
+          backgroundImage: 'none',
+        },
+      },
     },
   },
 });

@@ -77,11 +77,8 @@ function App() {
       <AppBar position="static" elevation={1}>
         <Toolbar>
           <Box sx={{ flex: 1 }}>
-            <Typography variant="h6" component="h1">
-              Earnings Call Analysis Agent
-            </Typography>
-            <Typography variant="caption" sx={{ opacity: 0.9 }}>
-              Ask questions about company earnings calls
+            <Typography variant="h4" component="h1">
+              <b>ECAA</b>
             </Typography>
           </Box>
           <Tooltip title="New chat">
