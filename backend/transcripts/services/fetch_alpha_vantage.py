@@ -1,8 +1,8 @@
 """
-Alpha Vantage MCP client for fetching earnings call transcripts.
+Alpha Vantage REST API client for fetching earnings call transcripts.
 
 This service handles:
-- MCP tool calls to Alpha Vantage
+- Direct REST API calls to Alpha Vantage
 - Response normalization from structured turns to normalized text
 - Caching logic
 """
@@ -32,60 +32,16 @@ class RateLimitError(Exception):
     pass
 
 
-class AlphaVantageMcpClient:
-    """Client for Alpha Vantage MCP transcript retrieval."""
+class AlphaVantageRestClient:
+    """Client for Alpha Vantage REST API transcript retrieval."""
     
     def __init__(self):
-        self.base_url = settings.ALPHAVANTAGE_MCP_URL
+        self.base_url = "https://www.alphavantage.co/query"
         self.api_key = settings.ALPHAVANTAGE_API_KEY
-    
-    def _mcp_url(self) -> str:
-        """Construct MCP URL with API key."""
-        return f"{self.base_url}?apikey={self.api_key}"
-    
-    def _post(self, method: str, params: dict, call_id: int = 1) -> dict:
-        """
-        Make JSON-RPC POST request to MCP server.
-        
-        Args:
-            method: JSON-RPC method name
-            params: Parameters for the method
-            call_id: JSON-RPC call ID
-        
-        Returns:
-            Result portion of JSON-RPC response
-        
-        Raises:
-            RuntimeError: if MCP returns error response
-            httpx.HTTPError: if HTTP request fails
-        """
-        body = {
-            "jsonrpc": "2.0",
-            "id": call_id,
-            "method": method,
-            "params": params
-        }
-        
-        try:
-            response = httpx.post(self._mcp_url(), json=body, timeout=30)
-            response.raise_for_status()
-        except httpx.HTTPStatusError as e:
-            logger.error(f"MCP HTTP error {e.response.status_code}: {e.response.text[:500]}")
-            raise
-        except httpx.HTTPError as e:
-            logger.error(f"MCP request failed: {type(e).__name__}: {str(e)}")
-            raise
-        
-        data = response.json()
-        if "error" in data:
-            logger.error(f"MCP returned error: {data['error']}")
-            raise RuntimeError(f"MCP error: {data['error']}")
-        
-        return data.get("result", {})
     
     def fetch_transcript(self, symbol: str, quarter: str) -> dict:
         """
-        Fetch earnings call transcript from Alpha Vantage via MCP.
+        Fetch earnings call transcript from Alpha Vantage REST API.
         
         Note: This method returns the raw JSON payload from Alpha Vantage.
         It does NOT normalize the turns. For normalized turn access, use
@@ -114,73 +70,32 @@ class AlphaVantageMcpClient:
         if not re.match(r'^\d{4}Q[1-4]$', quarter):
             raise ValueError(f"Invalid quarter format: {quarter}")
         
-        # TODO: For future optimization, consider calling TOOL_GET first to
-        # retrieve and cache the schema for EARNINGS_CALL_TRANSCRIPT. This
-        # would enable validation and can be skipped on repeat calls.
-        # See phase 2 plan for details.
-        
-        # Call TOOL_CALL with EARNINGS_CALL_TRANSCRIPT
-        result = self._post(
-            method="tools/call",
-            params={
-                "name": "TOOL_CALL",
-                "arguments": {
-                    "tool_name": "EARNINGS_CALL_TRANSCRIPT",
-                    "arguments": {
-                        "symbol": symbol,
-                        "quarter": quarter
-                    }
-                }
-            },
-            call_id=2
-        )
-        
-        # Extract content from MCP response
-        # MCP returns: {"content": [{"type": "text", "text": "...json..."}]}
-        if not result or "content" not in result:
-            raise TranscriptNotAvailable(f"No content in MCP response for {symbol} {quarter}")
-        
-        content_items = result.get("content", [])
-        if not content_items:
-            raise TranscriptNotAvailable(f"Empty content for {symbol} {quarter}")
-        
-        # Get the text from first content item
-        text_content = content_items[0].get("text", "")
-        if not text_content:
-            raise TranscriptNotAvailable(f"No text in content for {symbol} {quarter}")
-        
-        # Parse JSON from text content
+        # Call Alpha Vantage REST API directly
         try:
-            response_data = json.loads(text_content)
-        except json.JSONDecodeError:
-            raise RuntimeError(f"Failed to parse JSON from MCP response: {text_content[:200]}")
+            response = httpx.get(
+                self.base_url,
+                params={
+                    "function": "EARNINGS_CALL_TRANSCRIPT",
+                    "symbol": symbol,
+                    "quarter": quarter,
+                    "apikey": self.api_key
+                },
+                timeout=30
+            )
+            response.raise_for_status()
+        except httpx.HTTPStatusError as e:
+            logger.error(f"Alpha Vantage API HTTP error {e.response.status_code}: {e.response.text[:500]}")
+            raise
+        except httpx.HTTPError as e:
+            logger.error(f"Alpha Vantage API request failed: {type(e).__name__}: {str(e)}")
+            raise
         
-        # Handle preview response - fetch full data from data_url
-        if response_data.get("preview"):
-            # MCP returned a preview, fetch the full data from data_url
-            data_url = response_data.get("data_url")
-            if not data_url:
-                raise TranscriptNotAvailable(
-                    f"Preview response has no data_url for {symbol} {quarter}"
-                )
-            
-            # Fetch the full transcript data from the CDN URL
-            try:
-                full_response = httpx.get(data_url, timeout=30)
-                full_response.raise_for_status()
-                full_text = full_response.text
-            except httpx.HTTPError as e:
-                logger.error(f"Failed to fetch full data from {data_url}: {type(e).__name__}: {str(e)}")
-                raise RuntimeError(f"Failed to fetch full transcript data: {str(e)}")
-            
-            # Parse the full data as JSON
-            try:
-                payload = json.loads(full_text)
-            except json.JSONDecodeError:
-                raise RuntimeError(f"Failed to parse full data JSON from {data_url}: {full_text[:200]}")
-        else:
-            # Direct response (full data returned in response)
-            payload = response_data
+        # Parse JSON response
+        try:
+            payload = response.json()
+        except json.JSONDecodeError as e:
+            logger.error(f"Failed to parse JSON response: {str(e)}")
+            raise RuntimeError(f"Invalid JSON response from Alpha Vantage API")
         
         # Check for Alpha Vantage error conditions
         if "Note" in payload:
@@ -275,7 +190,7 @@ def get_or_fetch_transcript(symbol: str, quarter: str) -> Transcript:
         pass
     
     # Fetch from Alpha Vantage
-    client = AlphaVantageMcpClient()
+    client = AlphaVantageRestClient()
     raw_payload = client.fetch_transcript(symbol, quarter)
     
     # Normalize turns

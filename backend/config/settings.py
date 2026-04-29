@@ -161,8 +161,6 @@ SUMMARIZE_MODEL = config('SUMMARIZE_MODEL', default='gpt-4o-mini')
 
 # Alpha Vantage API
 ALPHAVANTAGE_API_KEY = config('ALPHAVANTAGE_API_KEY', default='')
-ALPHAVANTAGE_MCP_TRANSPORT = config('ALPHAVANTAGE_MCP_TRANSPORT', default='http')
-ALPHAVANTAGE_MCP_URL = config('ALPHAVANTAGE_MCP_URL', default='https://mcp.alphavantage.co/mcp')
 
 # =============================================================================
 # CORS Configuration
