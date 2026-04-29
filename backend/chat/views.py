@@ -37,7 +37,7 @@ class ChatView(APIView):
         Process a chat message and return assistant response.
         
         Handles intent detection, transcript fetching, and routing to
-        appropriate services (summarize, extract, Q&A).
+        appropriate services (summarize, Q&A).
         """
         # Validate request
         message = request.data.get('message')

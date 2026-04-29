@@ -158,7 +158,6 @@ REST_FRAMEWORK = {
 OPENAI_API_KEY = config('OPENAI_API_KEY', default='')
 OPENAI_MODEL = config('OPENAI_MODEL', default='gpt-4o-mini')
 SUMMARIZE_MODEL = config('SUMMARIZE_MODEL', default='gpt-4o-mini')
-EXTRACT_MODEL = config('EXTRACT_MODEL', default='gpt-4o-mini')
 
 # Alpha Vantage API
 ALPHAVANTAGE_API_KEY = config('ALPHAVANTAGE_API_KEY', default='')

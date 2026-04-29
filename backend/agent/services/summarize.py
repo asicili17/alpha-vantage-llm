@@ -182,7 +182,7 @@ def _reduce(map_outputs: List[dict], client: OpenAI) -> dict:
         return _parse_json_response(result_text, "reduce phase retry")
 
 
-def get_or_create_summary(transcript: Transcript) -> Artifact:
+def get_or_create_summary(transcript: Transcript) -> Tuple[Artifact, bool]:
     """
     Get cached summary or create a new one using map/reduce.
     
@@ -190,7 +190,7 @@ def get_or_create_summary(transcript: Transcript) -> Artifact:
     1. Check if artifact exists in cache
     2. If not, get chunks from transcript
     3. Validate chunk token counts (relies on Phase 3 chunking limits)
-    4. Map: Summarize each chunk
+    4. Map: Summarize each chunk (parallelized)
     5. Reduce: Merge summaries
     6. Persist artifact
     
@@ -198,7 +198,7 @@ def get_or_create_summary(transcript: Transcript) -> Artifact:
         transcript: Transcript instance to summarize
         
     Returns:
-        Artifact instance with summary in content field
+        Tuple of (Artifact instance, was_cached: bool)
         
     Raises:
         Exception: For OpenAI API errors or invalid responses
@@ -211,7 +211,7 @@ def get_or_create_summary(transcript: Transcript) -> Artifact:
             model=MODEL,
             prompt_version=PROMPT_VERSION
         )
-        return artifact
+        return artifact, True
     except Artifact.DoesNotExist:
         pass
     

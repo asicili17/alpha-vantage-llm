@@ -46,110 +46,12 @@ def format_summary(content: Dict) -> str:
     return "\n".join(lines)
 
 
-def format_extraction(content: Dict) -> str:
-    """
-    Format an extraction artifact into readable text.
-    
-    Args:
-        content: Dict matching EXTRACTION_SCHEMA with company, period, key_metrics, 
-                 guidance, risks, and tone
-        
-    Returns:
-        Formatted extraction string with sections for metrics, guidance, risks, and tone
-        
-    Example input:
-        {
-            "company": "Apple Inc.",
-            "period": "Q1 2024",
-            "key_metrics": [{"name": "Revenue", "value": "$100B", ...}],
-            "guidance": [...],
-            "risks": [...],
-            "tone": {"label": "positive", "rationale": "..."}
-        }
-        
-    Example output:
-        **Apple Inc. - Q1 2024 Key Insights**
-        
-        **Key Metrics:**
-        • Revenue: $100B (up 20% YoY)
-        ...
-    """
-    if not isinstance(content, dict):
-        return str(content)  # Fallback for unexpected format
-    
-    company = content.get('company', 'Company')
-    period = content.get('period', 'Period')
-    key_metrics = content.get('key_metrics', [])
-    guidance = content.get('guidance', [])
-    risks = content.get('risks', [])
-    tone = content.get('tone', {})
-    
-    lines = [f"**{company} - {period} Key Insights**", ""]
-    
-    # Key Metrics section
-    if key_metrics:
-        lines.append("**Key Metrics:**")
-        for metric in key_metrics:
-            name = metric.get('name', 'Unknown')
-            value = metric.get('value', 'N/A')
-            context = metric.get('context', '')
-            if context:
-                lines.append(f"• {name}: {value} ({context})")
-            else:
-                lines.append(f"• {name}: {value}")
-        lines.append("")
-    
-    # Guidance section
-    if guidance:
-        lines.append("**Forward Guidance:**")
-        for guide in guidance:
-            metric = guide.get('metric', 'Unknown')
-            range_value = guide.get('range_or_value', 'N/A')
-            timeframe = guide.get('timeframe', '')
-            qualifiers = guide.get('qualifiers', '')
-            
-            guidance_line = f"• {metric}: {range_value}"
-            if timeframe:
-                guidance_line += f" for {timeframe}"
-            if qualifiers:
-                guidance_line += f" ({qualifiers})"
-            lines.append(guidance_line)
-        lines.append("")
-    
-    # Risks section
-    if risks:
-        lines.append("**Risks & Challenges:**")
-        for risk in risks:
-            risk_desc = risk.get('risk', 'Unknown risk')
-            context = risk.get('context', '')
-            severity = risk.get('severity_hint', '')
-            
-            risk_line = f"• {risk_desc}"
-            if severity:
-                risk_line += f" (Severity: {severity})"
-            lines.append(risk_line)
-            if context:
-                lines.append(f"  ↳ {context}")
-        lines.append("")
-    
-    # Tone section
-    if tone:
-        label = tone.get('label', 'neutral')
-        rationale = tone.get('rationale', '')
-        lines.append("**Overall Tone:**")
-        lines.append(f"• {label.capitalize()}")
-        if rationale:
-            lines.append(f"  ↳ {rationale}")
-    
-    return "\n".join(lines)
-
-
 def format_artifact_content(artifact_type: str, content: Dict) -> str:
     """
     Format artifact content based on type.
     
     Args:
-        artifact_type: Type of artifact ('summary' or 'extraction')
+        artifact_type: Type of artifact ('summary')
         content: Dict containing the artifact content
         
     Returns:
@@ -157,8 +59,6 @@ def format_artifact_content(artifact_type: str, content: Dict) -> str:
     """
     if artifact_type == "summary":
         return format_summary(content)
-    elif artifact_type == "extraction":
-        return format_extraction(content)
     else:
         # Unknown type, return JSON representation
         import json

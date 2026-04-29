@@ -11,7 +11,6 @@ from typing import Dict, Optional, Tuple
 from django.db import transaction
 from django.db.models import Max
 
-from agent.services.extract import get_or_create_extraction
 from agent.services.formatting import format_artifact_content
 from agent.services.qa import answer_question
 from agent.services.summarize import get_or_create_summary
@@ -34,7 +33,7 @@ def detect_intent(message: str) -> str:
         message: User's message text
         
     Returns:
-        Intent string: 'fetch', 'summarize', 'extract', or 'qa'
+        Intent string: 'fetch', 'summarize', or 'qa'
     """
     lower = message.lower()
     
@@ -45,10 +44,6 @@ def detect_intent(message: str) -> str:
     # Check for summarize intent
     if any(word in lower for word in ["summarize", "summary", "give me a summary"]):
         return "summarize"
-    
-    # Check for extract intent
-    if any(word in lower for word in ["extract", "metrics", "guidance", "risks", "key numbers"]):
-        return "extract"
     
     # Default to Q&A
     return "qa"
@@ -152,7 +147,7 @@ def process_message(conversation_id: Optional[str], user_message: str) -> Dict:
     needs_clarification = False
     
     # Process based on intent
-    if intent in ['fetch', 'summarize', 'extract']:
+    if intent in ['fetch', 'summarize']:
         # These intents need a transcript
         if conversation.current_transcript:
             # Already have a transcript, use it
@@ -161,18 +156,13 @@ def process_message(conversation_id: Optional[str], user_message: str) -> Dict:
             if intent == 'fetch':
                 assistant_message = (
                     f"I already have the transcript for {transcript.symbol} {transcript.quarter}. "
-                    f"You can ask me to summarize it, extract key information, or ask specific questions."
+                    f"You can ask me to summarize it or ask specific questions."
                 )
             elif intent == 'summarize':
                 summary_artifact, was_cached = get_or_create_summary(transcript)
                 cached_status = " (from cache)" if was_cached else ""
                 formatted_content = format_artifact_content('summary', summary_artifact.content)
                 assistant_message = f"Here's the summary for {transcript.symbol} {transcript.quarter}{cached_status}:\n\n{formatted_content}"
-            elif intent == 'extract':
-                extraction_artifact, was_cached = get_or_create_extraction(transcript)
-                cached_status = " (from cache)" if was_cached else ""
-                formatted_content = format_artifact_content('extraction', extraction_artifact.content)
-                assistant_message = f"Here are the extracted key metrics and information for {transcript.symbol} {transcript.quarter}{cached_status}:\n\n{formatted_content}"
         else:
             # Need to fetch transcript
             symbol, quarter = extract_symbol_quarter(user_message)
@@ -196,15 +186,11 @@ def process_message(conversation_id: Optional[str], user_message: str) -> Dict:
                     conversation.save()
                     
                     if intent == 'fetch':
-                        assistant_message = f"Successfully fetched transcript for {symbol} {quarter}. You can now ask me to summarize it, extract key information, or ask specific questions."
+                        assistant_message = f"Successfully fetched transcript for {symbol} {quarter}. You can now ask me to summarize it or ask specific questions."
                     elif intent == 'summarize':
                         summary_artifact, was_cached = get_or_create_summary(transcript)
                         formatted_content = format_artifact_content('summary', summary_artifact.content)
                         assistant_message = f"Here's the summary for {symbol} {quarter}:\n\n{formatted_content}"
-                    elif intent == 'extract':
-                        extraction_artifact, was_cached = get_or_create_extraction(transcript)
-                        formatted_content = format_artifact_content('extraction', extraction_artifact.content)
-                        assistant_message = f"Here are the extracted key metrics and information for {symbol} {quarter}:\n\n{formatted_content}"
                         
                 except TranscriptNotAvailable as e:
                     raise
