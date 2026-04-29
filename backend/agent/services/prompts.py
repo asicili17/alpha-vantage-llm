@@ -62,7 +62,7 @@ The sections_covered should be a list of topic areas represented (e.g., ["financ
 Return only valid JSON, no markdown wrapping."""
 
 # =============================================================================
-# Legacy Prompts (keeping for compatibility)
+# Legacy Prompts
 # =============================================================================
 
 SUMMARIZATION_PROMPT = """Task: Summarize this chunk in 3–6 bullets.

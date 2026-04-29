@@ -246,7 +246,7 @@ def get_or_create_summary(transcript: Transcript) -> Tuple[Artifact, bool]:
     # Reduce phase: Merge summaries with hierarchical reduction if needed
     # Estimate tokens in reduce input
     reduce_input_text = json.dumps(map_outputs)
-    reduce_tokens = len(reduce_input_text) // 4  # Simple token estimate
+    reduce_tokens = len(reduce_input_text) // 4  
     
     if reduce_tokens > MAX_REDUCE_TOKENS:
         # Hierarchical reduce: batch reduce, then final reduce
