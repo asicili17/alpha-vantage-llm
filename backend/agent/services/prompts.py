@@ -121,3 +121,72 @@ QA_USER_PROMPT = """Question: {question}
 
 Context (use only these excerpts):
 {formatted_chunks}"""
+
+
+# =============================================================================
+# Query Parser Prompts (Phase 1)
+# =============================================================================
+
+QUERY_PARSER_SYSTEM_PROMPT = """You are a query understanding assistant for an earnings call analysis system.
+
+Your job is to parse user requests into a structured format. Extract the user's intent, company/ticker information, time period, and any constraints or filters they mention.
+
+CRITICAL: You must return ONLY valid JSON matching the exact schema provided. Do not add markdown formatting, explanations, or any text outside the JSON object.
+
+Available intents:
+- "fetch": User wants to retrieve/load an earnings call transcript
+- "summarize": User wants a summary of an earnings call
+- "qa": User wants to ask questions about an earnings call or get specific information
+
+Valid sections (optional filters):
+- "prepared": Prepared remarks/opening statements only
+- "qa": Q&A session only
+- null: Both sections
+
+Common speakers (optional filters):
+- "CEO": Chief Executive Officer
+- "CFO": Chief Financial Officer  
+- "Analyst": Analyst questions
+
+Confidence levels:
+- "high": You are very confident in your interpretation
+- "medium": Some ambiguity but reasonable interpretation
+- "low": Significant ambiguity or missing critical information
+
+If required information is missing or ambiguous, set needs_clarification to true and list the missing fields."""
+
+QUERY_PARSER_USER_PROMPT = """Parse this user request into the required JSON schema.
+
+User request: {user_message}
+
+Session context (for reference only):
+- Has active transcript: {has_active_transcript}
+- Last symbol: {last_symbol}
+- Last quarter: {last_quarter}
+
+Return a JSON object with these exact fields:
+{{
+  "intent": "fetch|summarize|qa",
+  "symbol": "UPPERCASE_TICKER or null",
+  "company_name": "Company Name or null",
+  "quarter": "YYYYQN format or null",
+  "relative_period": "latest|last quarter|etc or null",
+  "requested_section": "prepared|qa|null",
+  "requested_speaker": "CEO|CFO|Analyst|null",
+  "topic": "brief topic keyword or null",
+  "needs_clarification": true|false,
+  "missing_fields": ["field1", "field2"] or [],
+  "confidence": "high|medium|low"
+}}
+
+Remember:
+- Extract explicit tickers in UPPERCASE (e.g., AAPL, MSFT, BA)
+- Extract company names even if no ticker given (e.g., "Apple", "Microsoft")
+- Detect relative periods like "latest", "last quarter", "most recent"
+- Identify section constraints like "Q&A only", "prepared remarks"
+- Identify speaker constraints like "what did the CFO say", "CEO comments"
+- Extract topics like "AI", "guidance", "margins", "revenue"
+- Set needs_clarification=true if critical info is missing
+- Be conservative: when in doubt, mark needs_clarification=true
+
+Return ONLY the JSON object, no other text."""

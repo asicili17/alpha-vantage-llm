@@ -326,23 +326,46 @@ def score_chunk(chunk: TranscriptChunk, query_words: set) -> float:
     return float(overlap)
 
 
-def retrieve_top_k(transcript: Transcript, query: str, k: int = 8) -> List[TranscriptChunk]:
+def retrieve_top_k(
+    transcript: Transcript, 
+    query: str, 
+    k: int = 8,
+    section_filter: str = None,
+    speaker_filter: str = None
+) -> List[TranscriptChunk]:
     """
-    Retrieve top-K chunks by keyword scoring.
+    Retrieve top-K chunks by keyword scoring with optional metadata filters.
     
     Scoring:
     - Count query word overlaps in chunk text
     - Boost QA chunks by 0.2 if query is a question
     
+    Filtering (Phase 4):
+    - section_filter: Filter to 'prepared' or 'qa' sections only
+    - speaker_filter: Filter to chunks containing specific speaker
+    
     Args:
         transcript: Transcript to search
         query: Search query string
         k: Number of top chunks to return
+        section_filter: Optional section constraint ('prepared', 'qa')
+        speaker_filter: Optional speaker name/role to filter by
     
     Returns:
         List of top-K TranscriptChunk instances sorted by score (descending)
     """
     chunks = get_or_create_chunks(transcript)
+    if not chunks:
+        return []
+    
+    # Apply metadata filters first (Phase 4)
+    if section_filter:
+        chunks = [c for c in chunks if c.section == section_filter]
+    
+    if speaker_filter:
+        # Match speaker filter against speaker field (case-insensitive partial match)
+        chunks = [c for c in chunks if speaker_filter.lower() in c.speaker.lower()]
+    
     if not chunks:
         return []
     
