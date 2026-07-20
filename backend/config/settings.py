@@ -158,6 +158,8 @@ REST_FRAMEWORK = {
 OPENAI_API_KEY = config('OPENAI_API_KEY', default='')
 OPENAI_MODEL = config('OPENAI_MODEL', default='gpt-4o-mini')
 SUMMARIZE_MODEL = config('SUMMARIZE_MODEL', default='gpt-4o-mini')
+QUERY_PARSER_MODEL = config('QUERY_PARSER_MODEL', default='gpt-4o-mini')
+QUERY_PARSER_ENABLED = config('QUERY_PARSER_ENABLED', default=True, cast=bool)
 
 # Alpha Vantage API
 ALPHAVANTAGE_API_KEY = config('ALPHAVANTAGE_API_KEY', default='')
@@ -169,4 +171,42 @@ ALPHAVANTAGE_API_KEY = config('ALPHAVANTAGE_API_KEY', default='')
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:5173", 
 ]
+
+# =============================================================================
+# Logging Configuration
+# =============================================================================
+
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'formatters': {
+        'verbose': {
+            'format': '{levelname} {asctime} {module} {message}',
+            'style': '{',
+        },
+    },
+    'handlers': {
+        'console': {
+            'class': 'logging.StreamHandler',
+            'formatter': 'verbose',
+        },
+    },
+    'loggers': {
+        'transcripts': {
+            'handlers': ['console'],
+            'level': 'DEBUG',
+            'propagate': False,
+        },
+        'chat': {
+            'handlers': ['console'],
+            'level': 'DEBUG',
+            'propagate': False,
+        },
+        'agent': {
+            'handlers': ['console'],
+            'level': 'DEBUG',
+            'propagate': False,
+        },
+    },
+}
 

@@ -134,23 +134,33 @@ def _validate_confidence(confidence: str) -> str:
     return "low"
 
 
-def answer_question(transcript: Transcript, question: str) -> dict:
+def answer_question(
+    transcript: Transcript, 
+    question: str,
+    section_filter: str = None,
+    speaker_filter: str = None,
+    min_chunks_threshold: int = 2
+) -> dict:
     """
     Answer a question about the transcript using grounded Q&A.
     
     Process:
-    1. Retrieve top-K chunks using retrieve_top_k
+    1. Retrieve top-K chunks using retrieve_top_k with optional filters
     2. Check token budget (sum of chunk.token_count <= MAX_TOKENS_PER_CALL)
     3. Trim chunks from bottom if needed
-    4. Format chunks as context
-    5. Call OpenAI with QA prompts
-    6. Parse JSON response
-    7. Validate citations
-    8. Return answer with citations and confidence
+    4. Apply retrieval quality gate (Phase 5)
+    5. Format chunks as context
+    6. Call OpenAI with QA prompts
+    7. Parse JSON response
+    8. Validate citations
+    9. Return answer with citations and confidence
     
     Args:
         transcript: Transcript instance to search
         question: Question string from user
+        section_filter: Optional filter for 'prepared' or 'qa' sections (Phase 4)
+        speaker_filter: Optional speaker name/role filter (Phase 4)
+        min_chunks_threshold: Minimum chunks required for confident answer (Phase 5)
         
     Returns:
         Dict with:
@@ -158,21 +168,53 @@ def answer_question(transcript: Transcript, question: str) -> dict:
             - citations (list): List of {chunk_id, short_quote}
             - confidence (str): high|medium|low
             - chunks_used (int): Number of chunks used
+            - retrieval_quality (str): 'sufficient' or 'insufficient'
             
     Raises:
         ValueError: If response JSON is invalid
         Exception: For OpenAI API errors
     """
-    # Step 1: Retrieve top-K chunks
-    chunks = retrieve_top_k(transcript, question, k=DEFAULT_K)
+    # Step 1: Retrieve top-K chunks with filters (Phase 4)
+    # TODO: Get chunks_before count for logging
+    chunks_before_filter = None  # Would need to query without filters to get this
     
-    if not chunks:
-        # No chunks available - transcript may not be chunked yet
+    chunks = retrieve_top_k(
+        transcript, 
+        question, 
+        k=DEFAULT_K,
+        section_filter=section_filter,
+        speaker_filter=speaker_filter
+    )
+    
+    # Log filter application if filters were used
+    if section_filter or speaker_filter:
+        from chat.services.query_logging import log_filter_application
+        log_filter_application(
+            section_filter=section_filter,
+            speaker_filter=speaker_filter,
+            chunks_before=chunks_before_filter or 0,  # Would need actual count
+            chunks_after=len(chunks)
+        )
+    
+    # Phase 5: Retrieval quality gate
+    quality_assessment = 'sufficient' if (chunks and len(chunks) >= min_chunks_threshold) else 'insufficient'
+    
+    # Log retrieval quality gate evaluation
+    from chat.services.query_logging import log_retrieval_quality_gate
+    log_retrieval_quality_gate(
+        chunks_retrieved=len(chunks) if chunks else 0,
+        threshold=min_chunks_threshold,
+        quality=quality_assessment,
+        query=question
+    )
+    
+    if not chunks or len(chunks) < min_chunks_threshold:
         return {
-            "answer": "No transcript content available to answer this question.",
+            "answer": "I don't have enough relevant information to answer this question confidently. Could you rephrase or provide more context?",
             "citations": [],
             "confidence": "low",
-            "chunks_used": 0
+            "chunks_used": len(chunks) if chunks else 0,
+            "retrieval_quality": "insufficient"
         }
     
     # Step 2: Check token budget
@@ -227,10 +269,11 @@ def answer_question(transcript: Transcript, question: str) -> dict:
     raw_confidence = result.get("confidence", "low")
     validated_confidence = _validate_confidence(raw_confidence)
     
-    # Step 9: Return final result
+    # Step 9: Return final result with retrieval quality
     return {
         "answer": result.get("answer", ""),
         "citations": validated_citations,
         "confidence": validated_confidence,
-        "chunks_used": len(chunks)
+        "chunks_used": len(chunks),
+        "retrieval_quality": "sufficient"
     }
