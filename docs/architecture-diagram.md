@@ -4,6 +4,24 @@
 
 **ECAA (Earnings Call Analysis Agent)** is a conversational agent that helps users analyze earnings call transcripts through natural language. Users can fetch transcripts, get summaries, or ask specific questions.
 
+## What's New: LLM-Powered Query Understanding
+
+The system now uses **OpenAI GPT-4o-mini** to understand user queries semantically, replacing the previous keyword-based approach. This enables natural language queries like:
+
+- \"Summarize Apple's latest earnings call\"
+- \"What did the CEO say about revenue in Microsoft's last quarter?\"
+- \"Fetch Tesla Q2 2024\"
+
+### Query Understanding Pipeline
+
+1. **Semantic Parsing**: LLM interprets user intent and extracts entities
+2. **Entity Resolution**: 
+   - Company names → ticker symbols (\"Apple\" → \"AAPL\")
+   - Relative periods → concrete quarters (\"latest\" → \"2024Q2\")
+3. **Session Context**: Carries forward ticker/quarter from previous messages
+4. **Clarification**: Asks for missing information when needed
+5. **Validation**: Deterministic checks ensure safe execution
+
 ## MAP/REDUCE Pattern Explained
 
 **Problem:** Earnings transcripts are too long (~50K tokens) to fit in a single LLM call.
@@ -18,11 +36,13 @@
 
 ## Key Features Implemented
 
-✅ **Conversational Interface:** Natural language interaction with chat-based API  
+✅ **Natural Language Understanding:** LLM-powered semantic query parsing  
+✅ **Entity Resolution:** Company names→tickers, \"latest\"→quarters  
 ✅ **Multi-Intent Support:** Fetch, summarize, and Q&A capabilities  
 ✅ **Smart Caching:** Transcripts, chunks, and artifacts cached to minimize API costs  
 ✅ **Grounded Q&A:** Answers with source citations from specific chunks  
 ✅ **Conversation State:** Maintains context across multi-turn interactions  
+✅ **Intelligent Clarification:** Asks for missing information naturally  
 ✅ **Error Handling:** Graceful degradation for missing transcripts and rate limits
 
 ## Full System Flowchart
@@ -41,11 +61,21 @@ flowchart TD
     CreateConv --> SaveUserMsg
     LoadConv --> SaveUserMsg[Save user Message<br/>with role='user']
     
-    SaveUserMsg --> DetectIntent[Keyword-based intent detection:<br/>- 'fetch' → fetch<br/>- 'summarize' → summarize<br/>- default → qa]
+    SaveUserMsg --> ParseWithLLM[LLM Query Parser:<br/>Call GPT-4o-mini with structured output<br/>Extract: intent, symbol, company_name,<br/>quarter, relative_period, topic, etc.]
     
-    DetectIntent --> ExtractParams[Regex extract:<br/>- Symbol: 2-5 uppercase letters<br/>- Quarter: Q1-Q4 + any 4-digit year]
+    ParseWithLLM --> NormalizeQuery[Normalize Fields:<br/>- Symbol → uppercase<br/>- Quarter → YYYYQN format<br/>- Validate confidence]
     
-    ExtractParams --> RouteIntent{Route by<br/>intent}
+    NormalizeQuery --> ResolveEntities[Entity Resolution:<br/>1. Company name → ticker<br/>   via Alpha Vantage SYMBOL_SEARCH<br/>2. \"latest\" → quarter<br/>   via transcript probing]
+    
+    ResolveEntities --> ApplySessionContext[Apply Session Context:<br/>Fill missing fields from<br/>conversation.current_transcript]
+    
+    ApplySessionContext --> CheckClarification{Needs<br/>clarification?}
+    
+    CheckClarification -->|Yes| AskClarification[Generate clarification:<br/>\"I need the ticker symbol<br/>to proceed. Please provide it.\"]
+    
+    CheckClarification -->|No| ValidateQuery[Validate ParsedQuery:<br/>- Intent in allowed list<br/>- Quarter format correct<br/>- Symbol format valid]
+    
+    ValidateQuery --> RouteIntent{Route by<br/>intent}
     
     RouteIntent -->|fetch| NeedTranscript1
     RouteIntent -->|summarize| NeedTranscript2
@@ -56,25 +86,16 @@ flowchart TD
     NeedTranscript3{Has current<br/>transcript?}
     
     NeedTranscript1 -->|Yes| AlreadyLoaded[Return: Already have<br/>SYMBOL QUARTER transcript]
-    NeedTranscript1 -->|No| CheckParams1
+    NeedTranscript1 -->|No| FetchTranscript1
     
     NeedTranscript2 -->|Yes| CheckSummaryCache
-    NeedTranscript2 -->|No| CheckParams2
+    NeedTranscript2 -->|No| FetchTranscript2
     
     NeedTranscript3 -->|No| AskForTranscript[Ask user to specify<br/>symbol + quarter first]
     NeedTranscript3 -->|Yes| RetrieveChunks
     
-    CheckParams1{Has symbol<br/>AND quarter?}
-    CheckParams2{Has symbol<br/>AND quarter?}
-    
-    CheckParams1 -->|No| AskClarification1[Ask: Which ticker/quarter?]
-    CheckParams2 -->|No| AskClarification2[Ask: Which ticker/quarter?]
-    
-    CheckParams1 -->|Yes| FetchTranscript1
-    CheckParams2 -->|Yes| FetchTranscript2
-    
-    FetchTranscript1[MCP JSON-RPC call:<br/>Alpha Vantage<br/>get_earnings_call_transcript]
-    FetchTranscript2[MCP JSON-RPC call:<br/>Alpha Vantage<br/>get_earnings_call_transcript]
+    FetchTranscript1[Alpha Vantage REST API:<br/>GET /query?function=<br/>EARNINGS_CALL_TRANSCRIPT]
+    FetchTranscript2[Alpha Vantage REST API:<br/>GET /query?function=<br/>EARNINGS_CALL_TRANSCRIPT]
     
     FetchTranscript1 --> ParseTurns1[Parse structured turns<br/>to Transcript + TranscriptTurn]
     FetchTranscript2 --> ParseTurns2[Parse structured turns<br/>to Transcript + TranscriptTurn]
@@ -121,8 +142,7 @@ flowchart TD
     ValidateCitations --> BuildResponse
     
     AlreadyLoaded --> BuildResponse
-    AskClarification1 --> BuildResponse
-    AskClarification2 --> BuildResponse
+    AskClarification --> BuildResponse
     AskForTranscript --> BuildResponse
     
     BuildResponse[Build response JSON:<br/>- conversation_id<br/>- assistant_message<br/>- citations array<br/>- intent<br/>- needs_clarification]
@@ -135,6 +155,8 @@ flowchart TD
     
     style Start fill:#e1f5e1,color:#111,stroke:#2e7d32,stroke-width:3px
     style End fill:#e1f5e1,color:#111,stroke:#2e7d32,stroke-width:3px
+    style ParseWithLLM fill:#e3f2fd,color:#111,stroke:#1565c0,stroke-width:2px
+    style ResolveEntities fill:#fff4e6,color:#111,stroke:#ef6c00,stroke-width:2px
     style FetchTranscript1 fill:#fff4e6,color:#111,stroke:#ef6c00,stroke-width:2px
     style FetchTranscript2 fill:#fff4e6,color:#111,stroke:#ef6c00,stroke-width:2px
     style MapSummarize fill:#e3f2fd,color:#111,stroke:#1565c0,stroke-width:2px
@@ -142,18 +164,21 @@ flowchart TD
     style CallQA fill:#e3f2fd,color:#111,stroke:#1565c0,stroke-width:2px
     style CheckSummaryCache fill:#fce4ec,color:#111,stroke:#ad1457,stroke-width:2px
     style FormatSummary fill:#f3e5f5,color:#111,stroke:#6a1b9a,stroke-width:2px
-    style RenderUI fill:#e8f5e9,color:#111,stroke:#2e7d32,stroke-width:2px
 ```
 
 ## User Journey Paths
 
 ECAA supports multiple conversation flows depending on user intent. Here are the main paths a user can take:
 
-### Path 1: Quick Summary Flow
-**Goal:** Get a high-level overview of an earnings call
+### Path 1: Natural Language Query Flow
+**Goal:** Get a summary using natural language
 
 ```
-User: "Summarize AAPL 2024Q2"
+User: "Summarize Apple's latest earnings call"
+  ↓
+System: [LLM parses: intent='summarize', company_name='Apple', relative_period='latest']
+  ↓
+System: [Resolves: 'Apple' → 'AAPL', 'latest' → '2024Q2' via probing]
   ↓
 System: [Fetches transcript if needed]
   ↓
@@ -177,11 +202,19 @@ Assistant: "Here's the summary for AAPL 2024Q2:
 **Goal:** Ask specific questions about transcript content
 
 ```
-User: "Load MSFT 2024Q2"
+User: "Load Microsoft Q2 2024"
+  ↓
+System: [LLM parses: intent='fetch', company_name='Microsoft', quarter='Q2 2024']
+  ↓
+System: [Resolves: 'Microsoft' → 'MSFT', 'Q2 2024' → '2024Q2']
   ↓
 Assistant: "Successfully fetched transcript for MSFT 2024Q2..."
 
 User: "What did they say about Azure growth?"
+  ↓
+System: [LLM parses: intent='qa', topic='Azure growth']
+  ↓
+System: [Session context fills: symbol='MSFT', quarter='2024Q2']
   ↓
 System: [Retrieves relevant chunks via keyword scoring]
   ↓
@@ -206,13 +239,31 @@ Assistant: "Operating margins expanded to 46%, up from 44% in the prior year qua
 ```
 User: "Summarize the latest Apple earnings"
   ↓
-System: [Detects missing quarter]
+System: [LLM parses: intent='summarize', company_name='Apple', relative_period='latest']
   ↓
-Assistant: "I need the quarter (e.g., 'Q1 2024' or '2024Q1') to fetch the transcript. Please provide it in your message."
+System: [Resolves: 'Apple' → 'AAPL']
+  ↓
+System: [Probes for latest quarter: tries 2024Q4, 2024Q3, 2024Q2... finds 2024Q2]
+  ↓
+Assistant: "Here's the summary for AAPL 2024Q2..."
 
-User: "Q2 2024"
+# OR if resolution fails:
+
+User: "Summarize the earnings call"
   ↓
-System: [Re-parses with context, extracts AAPL + Q2 2024]
+System: [LLM parses: intent='summarize', no company/quarter]
+  ↓
+System: [Clarification triggered: missing symbol AND quarter]
+  ↓
+Assistant: "I need the company ticker symbol and quarter (e.g., 'AAPL Q2 2024') to proceed. Please provide them."
+
+User: "Apple Q2 2024"
+  ↓
+System: [LLM parses: company_name='Apple', quarter='Q2 2024']
+  ↓
+System: [Session context carries intent='summarize']
+  ↓
+System: [Resolves: 'Apple' → 'AAPL', 'Q2 2024' → '2024Q2']
   ↓
 Assistant: "Here's the summary for AAPL 2024Q2..."
 ```
@@ -294,25 +345,65 @@ Assistant: "I already have the transcript for AAPL 2024Q2. You can ask me to sum
 
 ## Implementation Details
 
-### Intent Detection
-- **Method:** Pure keyword matching (no LLM needed)
-- **Patterns:**
-  - `fetch`: "fetch", "get transcript", "load", "retrieve transcript"
-  - `summarize`: "summarize", "summary", "give me a summary"
-  - `qa`: Default for all other messages
+### Query Understanding Pipeline
 
-### Symbol/Quarter Extraction
-- **Symbol:** Regex matches 2-5 uppercase letters with word boundaries (`\b[A-Z]{2,5}\b`)
-- **Quarter:** Flexible formats supported:
-  - Formats: `Q1 2024`, `2024 Q1`, `2024Q1`, `Q1-2024`
-  - Pattern: `(Q[1-4])\s*[-]?\s*(\d{4})|(\d{4})\s*[-]?\s*(Q[1-4])`
-  - Accepts any 4-digit year (e.g., 2015, 2024, 2030)
+#### 1. LLM Semantic Parsing
+- **Method:** OpenAI GPT-4o-mini with structured JSON output
+- **Input:** User message + session context (previous symbol/quarter)
+- **Output:** ParsedQuery with fields:
+  - `intent`: 'fetch', 'summarize', 'qa', 'clarify'
+  - `symbol`: Ticker symbol if mentioned (e.g., 'AAPL')
+  - `company_name`: Company name if mentioned (e.g., 'Apple')
+  - `quarter`: Quarter if mentioned (e.g., 'Q2 2024')
+  - `relative_period`: 'latest', 'last', 'most recent'
+  - `topic`: Question topic for Q&A
+  - `confidence`: 'high', 'medium', 'low'
+- **Fallback:** Deterministic regex patterns as backup if LLM fails
+
+#### 2. Entity Resolution
+- **Company Name → Ticker Symbol:**
+  - API: Alpha Vantage SYMBOL_SEARCH
+  - Matching: bestMatch.score ≥ 0.8, type == "Equity"
+  - Example: "Apple" → "AAPL" (score: 1.0)
+  
+- **Relative Period → Concrete Quarter:**
+  - Method: Probe up to 8 quarters backwards from current date
+  - Format: YYYYQN (e.g., '2024Q2')
+  - Caching: Transcripts discovered during probing are cached
+  - Example: "latest" → '2024Q2' (first available quarter found)
+
+#### 3. Session Context Application
+- **Source:** `conversation.current_transcript`
+- **Applied:** After LLM parsing and entity resolution
+- **Purpose:** Fill missing symbol/quarter from previous messages
+- **Example:** 
+  - Turn 1: "Load AAPL 2024Q2" → sets current_transcript
+  - Turn 2: "Summarize it" → fills symbol='AAPL', quarter='2024Q2'
+
+#### 4. Clarification Logic
+- **Triggers:**
+  - Missing symbol AND quarter for fetch/summarize intents
+  - Missing symbol for Q&A when no current_transcript
+  - Low confidence parse (though execution still proceeds)
+- **Response:** Natural language request for missing information
+- **Examples:**
+  - "I need the company ticker symbol and quarter..."
+  - "Which company's earnings call would you like to analyze?"
+
+#### 5. Validation
+- **Checks:**
+  - Intent in allowed list: {'fetch', 'summarize', 'qa', 'clarify'}
+  - Quarter format: YYYYQN (e.g., '2024Q2')
+  - Symbol format: 1-5 uppercase letters
+  - Confidence value: {'high', 'medium', 'low'}
+- **Purpose:** Ensure safe execution despite LLM output
 
 ### Transcript Fetching
-- **MCP Client:** JSON-RPC over HTTP to Alpha Vantage MCP server
-- **Endpoint:** `get_earnings_call_transcript(symbol, quarter)`
-- **Response:** Structured JSON with `company`, `quarter`, `date`, `transcripts` (array of turns)
-- **Normalization:** Convert structured turns to `Transcript` + `TranscriptTurn` Django models
+- **Client:** Alpha Vantage REST API via httpx
+- **Endpoint:** `GET /query?function=EARNINGS_CALL_TRANSCRIPT&symbol={symbol}&year={year}&quarter={quarter}`
+- **Response:** JSON with transcript text (single string, not structured turns)
+- **Parsing:** Split into turns based on "Operator", "Executive", "Analyst" patterns
+- **Normalization:** Convert to `Transcript` + `TranscriptTurn` Django models
 - **Auto-chunking:** Immediately chunks transcript on first fetch
 
 ### Chunking Strategy
